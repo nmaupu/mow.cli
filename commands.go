@@ -7,6 +7,7 @@ import (
 	"text/tabwriter"
 
 	"github.com/jawher/mow.cli/internal/flow"
+	"github.com/jawher/mow.cli/internal/values"
 )
 
 /*
@@ -128,7 +129,7 @@ The result should be stored in a variable (a pointer to a bool) which will be po
 */
 func (c *Cmd) Bool(p BoolParam) *bool {
 	into := new(bool)
-	value := newBoolValue(into, p.value())
+	value := values.NewBool(into, p.value())
 
 	switch x := p.(type) {
 	case BoolOpt:
@@ -150,7 +151,7 @@ The result should be stored in a variable (a pointer to a string) which will be 
 */
 func (c *Cmd) String(p StringParam) *string {
 	into := new(string)
-	value := newStringValue(into, p.value())
+	value := values.NewString(into, p.value())
 
 	switch x := p.(type) {
 	case StringOpt:
@@ -172,7 +173,7 @@ The result should be stored in a variable (a pointer to an int) which will be po
 */
 func (c *Cmd) Int(p IntParam) *int {
 	into := new(int)
-	value := newIntValue(into, p.value())
+	value := values.NewInt(into, p.value())
 
 	switch x := p.(type) {
 	case IntOpt:
@@ -194,7 +195,7 @@ The result should be stored in a variable (a pointer to a string slice) which wi
 */
 func (c *Cmd) Strings(p StringsParam) *[]string {
 	into := new([]string)
-	value := newStringsValue(into, p.value())
+	value := values.NewStrings(into, p.value())
 
 	switch x := p.(type) {
 	case StringsOpt:
@@ -216,7 +217,7 @@ The result should be stored in a variable (a pointer to an int slice) which will
 */
 func (c *Cmd) Ints(p IntsParam) *[]int {
 	into := new([]int)
-	value := newIntsValue(into, p.value())
+	value := values.NewInts(into, p.value())
 
 	switch x := p.(type) {
 	case IntsOpt:
@@ -406,7 +407,7 @@ func formatValueForHelp(hide bool, v flag.Value) string {
 		return ""
 	}
 
-	if dv, ok := v.(defaultValued); ok {
+	if dv, ok := v.(values.DefaultValued); ok {
 		if dv.IsDefault() {
 			return ""
 		}
@@ -547,4 +548,19 @@ func (c *Cmd) isAlias(arg string) bool {
 		}
 	}
 	return false
+}
+
+func joinStrings(parts ...string) string {
+	res := ""
+	for _, part := range parts {
+		s := strings.TrimSpace(part)
+		if s == "" {
+			continue
+		}
+		if res != "" {
+			res += " "
+		}
+		res += part
+	}
+	return res
 }

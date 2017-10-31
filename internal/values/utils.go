@@ -1,4 +1,4 @@
-package cli
+package values
 
 import (
 	"flag"
@@ -6,8 +6,16 @@ import (
 	"strings"
 )
 
-func setFromEnv(into flag.Value, envVars string) bool {
-	multiValued, isMulti := into.(multiValued)
+func IsBool(v flag.Value) bool {
+	if bf, ok := v.(BoolValued); ok {
+		return bf.IsBoolFlag()
+	}
+
+	return false
+}
+
+func SetFromEnv(into flag.Value, envVars string) bool {
+	multiValued, isMulti := into.(MultiValued)
 
 	if len(envVars) > 0 {
 		for _, rev := range strings.Split(envVars, " ") {
@@ -36,7 +44,7 @@ func setFromEnv(into flag.Value, envVars string) bool {
 	return false
 }
 
-func setMultivalued(into multiValued, values []string) error {
+func setMultivalued(into MultiValued, values []string) error {
 	into.Clear()
 
 	for _, v := range values {
@@ -48,19 +56,4 @@ func setMultivalued(into multiValued, values []string) error {
 	}
 
 	return nil
-}
-
-func joinStrings(parts ...string) string {
-	res := ""
-	for _, part := range parts {
-		s := strings.TrimSpace(part)
-		if s == "" {
-			continue
-		}
-		if res != "" {
-			res += " "
-		}
-		res += part
-	}
-	return res
 }

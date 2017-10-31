@@ -4,6 +4,8 @@ import (
 	"flag"
 	"fmt"
 	"strings"
+
+	"github.com/jawher/mow.cli/internal/values"
 )
 
 // BoolOpt describes a boolean option
@@ -244,11 +246,7 @@ type opt struct {
 }
 
 func (o *opt) isBool() bool {
-	if bf, ok := o.value.(boolValued); ok {
-		return bf.IsBoolFlag()
-	}
-
-	return false
+	return values.IsBool(o.value)
 }
 
 func (o *opt) String() string {
@@ -268,7 +266,7 @@ func mkOptStrs(optName string) []string {
 }
 
 func (c *Cmd) mkOpt(opt opt) {
-	opt.valueSetFromEnv = setFromEnv(opt.value, opt.envVar)
+	opt.valueSetFromEnv = values.SetFromEnv(opt.value, opt.envVar)
 
 	opt.names = mkOptStrs(opt.name)
 

@@ -5,6 +5,8 @@ import (
 	"strings"
 
 	"fmt"
+
+	"github.com/jawher/mow.cli/internal/values"
 )
 
 type state struct {
@@ -176,7 +178,7 @@ func (s *state) parse(args []string) error {
 	}
 
 	for opt, vs := range pc.opts {
-		if multiValued, ok := opt.value.(multiValued); ok {
+		if multiValued, ok := opt.value.(values.MultiValued); ok {
 			multiValued.Clear()
 			opt.valueSetFromEnv = false
 		}
@@ -192,7 +194,7 @@ func (s *state) parse(args []string) error {
 	}
 
 	for arg, vs := range pc.args {
-		if multiValued, ok := arg.value.(multiValued); ok {
+		if multiValued, ok := arg.value.(values.MultiValued); ok {
 			multiValued.Clear()
 			arg.valueSetFromEnv = false
 		}

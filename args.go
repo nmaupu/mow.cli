@@ -3,6 +3,8 @@ package cli
 import (
 	"flag"
 	"fmt"
+
+	"github.com/jawher/mow.cli/internal/values"
 )
 
 // BoolArg describes a boolean argument
@@ -217,7 +219,7 @@ func (a *arg) String() string {
 }
 
 func (c *Cmd) mkArg(arg arg) {
-	arg.valueSetFromEnv = setFromEnv(arg.value, arg.envVar)
+	arg.valueSetFromEnv = values.SetFromEnv(arg.value, arg.envVar)
 
 	c.args = append(c.args, &arg)
 	c.argsIdx[arg.name] = &arg

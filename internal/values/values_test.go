@@ -1,4 +1,4 @@
-package cli
+package values
 
 import (
 	"testing"
@@ -9,7 +9,7 @@ import (
 func TestBoolParam(t *testing.T) {
 	var into bool
 
-	param := newBoolValue(&into, false)
+	param := NewBool(&into, false)
 
 	require.True(t, param.IsBoolFlag())
 
@@ -43,7 +43,7 @@ func TestBoolParam(t *testing.T) {
 func TestStringParam(t *testing.T) {
 	var into string
 
-	param := newStringValue(&into, "")
+	param := NewString(&into, "")
 
 	cases := []struct {
 		input  string
@@ -68,7 +68,7 @@ func TestStringParam(t *testing.T) {
 func TestIntParam(t *testing.T) {
 	var into int
 
-	param := newIntValue(&into, 0)
+	param := NewInt(&into, 0)
 
 	cases := []struct {
 		input  string
@@ -100,7 +100,7 @@ func TestIntParam(t *testing.T) {
 
 func TestStringsParam(t *testing.T) {
 	into := []string{}
-	param := newStringsValue(&into, nil)
+	param := NewStrings(&into, nil)
 
 	param.Set("a")
 	param.Set("b")
@@ -115,7 +115,7 @@ func TestStringsParam(t *testing.T) {
 
 func TestIntsParam(t *testing.T) {
 	into := []int{}
-	param := newIntsValue(&into, nil)
+	param := NewInts(&into, nil)
 
 	err := param.Set("1")
 	require.NoError(t, err)

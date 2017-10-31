@@ -50,15 +50,15 @@ func TestArgMatcher(t *testing.T) {
 }
 
 func TestBoolOptMatcher(t *testing.T) {
-	forceOpt := &opt{names: []string{"-f", "--force"}, value: newBoolValue(new(bool), false)}
+	forceOpt := &opt{names: []string{"-f", "--force"}, value: values.NewBool(new(bool), false)}
 	optMatcher := &optMatcher{
 		theOne: forceOpt,
 		optionsIdx: map[string]*opt{
 			"-f":      forceOpt,
 			"--force": forceOpt,
-			"-g":      {names: []string{"-g"}, value: newBoolValue(new(bool), false)},
-			"-x":      {names: []string{"-x"}, value: newBoolValue(new(bool), false)},
-			"-y":      {names: []string{"-y"}, value: newBoolValue(new(bool), false)},
+			"-g":      {names: []string{"-g"}, value: values.NewBool(new(bool), false)},
+			"-x":      {names: []string{"-x"}, value: values.NewBool(new(bool), false)},
+			"-y":      {names: []string{"-y"}, value: values.NewBool(new(bool), false)},
 		},
 	}
 	cases := []struct {
@@ -95,10 +95,10 @@ func TestBoolOptMatcher(t *testing.T) {
 func TestOptMatcher(t *testing.T) {
 	names := []string{"-f", "--force"}
 	opts := []*opt{
-		{names: names, value: newStringValue(new(string), "")},
-		{names: names, value: newIntValue(new(int), 0)},
-		{names: names, value: newStringsValue(new([]string), nil)},
-		{names: names, value: newIntsValue(new([]int), nil)},
+		{names: names, value: values.NewString(new(string), "")},
+		{names: names, value: values.NewInt(new(int), 0)},
+		{names: names, value: values.NewStrings(new([]string), nil)},
+		{names: names, value: values.NewInts(new([]int), nil)},
 	}
 
 	cases := []struct {
@@ -123,7 +123,7 @@ func TestOptMatcher(t *testing.T) {
 				optionsIdx: map[string]*opt{
 					"-f":      forceOpt,
 					"--force": forceOpt,
-					"-a":      {names: []string{"-a"}, value: newBoolValue(new(bool), false)},
+					"-a":      {names: []string{"-a"}, value: values.NewBool(new(bool), false)},
 				},
 			}
 
@@ -144,8 +144,8 @@ func TestOptMatcher(t *testing.T) {
 func TestOptsMatcher(t *testing.T) {
 	opts := optsMatcher{
 		options: []*opt{
-			{names: []string{"-f", "--force"}, value: newBoolValue(new(bool), false)},
-			{names: []string{"-g", "--green"}, value: newStringValue(new(string), "")},
+			{names: []string{"-f", "--force"}, value: values.NewBool(new(bool), false)},
+			{names: []string{"-g", "--green"}, value: values.NewString(new(string), "")},
 		},
 		optionsIndex: map[string]*opt{},
 	}
@@ -199,7 +199,7 @@ func TestOptsMatcher(t *testing.T) {
 func TestOptsMatcherInfiniteLoop(t *testing.T) {
 	opts := optsMatcher{
 		options: []*opt{
-			{names: []string{"-g"}, value: newStringValue(new(string), ""), valueSetFromEnv: true},
+			{names: []string{"-g"}, value: values.NewString(new(string), ""), valueSetFromEnv: true},
 		},
 		optionsIndex: map[string]*opt{},
 	}
