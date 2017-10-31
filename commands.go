@@ -5,6 +5,8 @@ import (
 	"fmt"
 	"strings"
 	"text/tabwriter"
+
+	"github.com/jawher/mow.cli/internal/flow"
 )
 
 /*
@@ -430,7 +432,7 @@ func formatEnvVarsForHelp(envVars string) string {
 	return res
 }
 
-func (c *Cmd) parse(args []string, entry, inFlow, outFlow *step) error {
+func (c *Cmd) parse(args []string, entry, inFlow, outFlow *flow.Step) error {
 	if c.helpRequested(args) {
 		c.PrintLongHelp()
 		c.onError(errHelpRequested)
@@ -446,31 +448,34 @@ func (c *Cmd) parse(args []string, entry, inFlow, outFlow *step) error {
 		return err
 	}
 
-	newInFlow := &step{
-		do:    c.Before,
-		error: outFlow,
-		desc:  fmt.Sprintf("%s.Before", c.name),
+	newInFlow := &flow.Step{
+		Do:     c.Before,
+		Error:  outFlow,
+		Desc:   fmt.Sprintf("%s.Before", c.name),
+		Exiter: exiter,
 	}
-	inFlow.success = newInFlow
+	inFlow.Success = newInFlow
 
-	newOutFlow := &step{
-		do:      c.After,
-		success: outFlow,
-		error:   outFlow,
-		desc:    fmt.Sprintf("%s.After", c.name),
+	newOutFlow := &flow.Step{
+		Do:      c.After,
+		Success: outFlow,
+		Error:   outFlow,
+		Desc:    fmt.Sprintf("%s.After", c.name),
+		Exiter:  exiter,
 	}
 
 	args = args[nargsLen:]
 	if len(args) == 0 {
 		if c.Action != nil {
-			newInFlow.success = &step{
-				do:      c.Action,
-				success: newOutFlow,
-				error:   newOutFlow,
-				desc:    fmt.Sprintf("%s.Action", c.name),
+			newInFlow.Success = &flow.Step{
+				Do:      c.Action,
+				Success: newOutFlow,
+				Error:   newOutFlow,
+				Desc:    fmt.Sprintf("%s.Action", c.name),
+				Exiter:  exiter,
 			}
 
-			entry.run(nil)
+			entry.Run(nil)
 			return nil
 		}
 		c.PrintHelp()

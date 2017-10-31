@@ -9,6 +9,8 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"testing"
+
+	"github.com/jawher/mow.cli/internal/flow"
 )
 
 func okCmd(t *testing.T, spec string, init CmdInitializer, args []string) {
@@ -26,8 +28,8 @@ func okCmd(t *testing.T, spec string, init CmdInitializer, args []string) {
 	err := cmd.doInit()
 	require.Nil(t, err, "should parse")
 	t.Logf("testing spec %s with args: %v", spec, args)
-	inFlow := &step{}
-	err = cmd.parse(args, inFlow, inFlow, &step{})
+	inFlow := &flow.Step{}
+	err = cmd.parse(args, inFlow, inFlow, &flow.Step{})
 	require.Nil(t, err, "cmd parse should't fail")
 }
 
@@ -46,8 +48,8 @@ func failCmd(t *testing.T, spec string, init CmdInitializer, args []string) {
 	err := cmd.doInit()
 	require.NoError(t, err, "should parse")
 	t.Logf("testing spec %s with args: %v", spec, args)
-	inFlow := &step{}
-	err = cmd.parse(args, inFlow, inFlow, &step{})
+	inFlow := &flow.Step{}
+	err = cmd.parse(args, inFlow, inFlow, &flow.Step{})
 	require.Error(t, err, "cmd parse should have failed")
 }
 

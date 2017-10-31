@@ -5,6 +5,8 @@ import (
 	"fmt"
 	"io"
 	"os"
+
+	"github.com/jawher/mow.cli/internal/flow"
 )
 
 /*
@@ -62,7 +64,7 @@ func (cli *Cli) Version(name, version string) {
 	cli.version = &cliVersion{version, option}
 }
 
-func (cli *Cli) parse(args []string, entry, inFlow, outFlow *step) error {
+func (cli *Cli) parse(args []string, entry, inFlow, outFlow *flow.Step) error {
 	// We overload Cmd.parse() and handle cases that only apply to the CLI command, like versioning
 	// After that, we just call Cmd.parse() for the default behavior
 	if cli.versionSetAndRequested(args) {
@@ -97,8 +99,8 @@ func (cli *Cli) Run(args []string) error {
 	if err := cli.doInit(); err != nil {
 		panic(err)
 	}
-	inFlow := &step{desc: "RootIn"}
-	outFlow := &step{desc: "RootOut"}
+	inFlow := &flow.Step{Desc: "RootIn", Exiter: exiter}
+	outFlow := &flow.Step{Desc: "RootOut", Exiter: exiter}
 	return cli.parse(args[1:], inFlow, inFlow, outFlow)
 }
 
@@ -118,10 +120,8 @@ Exit causes the app the exit with the specified exit code while giving the After
 This should be used instead of os.Exit.
 */
 func Exit(code int) {
-	panic(exit(code))
+	panic(flow.ExitCode(code))
 }
-
-type exit int
 
 var exiter = func(code int) {
 	os.Exit(code)

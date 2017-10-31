@@ -1,4 +1,4 @@
-package cli
+package flow
 
 import (
 	"github.com/stretchr/testify/require"
@@ -8,38 +8,38 @@ import (
 
 func TestStepCallsDo(t *testing.T) {
 	called := false
-	step := &step{
-		do: func() {
+	step := &Step{
+		Do: func() {
 			called = true
 		},
 	}
 
-	step.run(nil)
+	step.Run(nil)
 
 	require.True(t, called, "Step's do wasn't called")
 }
 
 func TestStepCallsSuccessAfterDo(t *testing.T) {
 	calls := 0
-	step := &step{
-		do: func() {
+	step := &Step{
+		Do: func() {
 			require.Equal(t, 0, calls, "Do should be called first")
 			calls++
 		},
-		success: &step{
-			do: func() {
+		Success: &Step{
+			Do: func() {
 				require.Equal(t, 1, calls, "Success should be called second")
 				calls++
 			},
 		},
-		error: &step{
-			do: func() {
+		Error: &Step{
+			Do: func() {
 				t.Fatalf("Error should not have been called")
 			},
 		},
 	}
 
-	step.run(nil)
+	step.Run(nil)
 
 	require.Equal(t, 2, calls, "Both do and success should be called")
 }
@@ -47,26 +47,26 @@ func TestStepCallsSuccessAfterDo(t *testing.T) {
 func TestStepCallsErrorIfDoPanics(t *testing.T) {
 	defer func() { recover() }()
 	calls := 0
-	step := &step{
-		do: func() {
+	step := &Step{
+		Do: func() {
 			require.Equal(t, 0, calls, "Do should be called first")
 			calls++
 			panic(42)
 		},
-		success: &step{
-			do: func() {
+		Success: &Step{
+			Do: func() {
 				t.Fatalf("Success should not have been called")
 			},
 		},
-		error: &step{
-			do: func() {
+		Error: &Step{
+			Do: func() {
 				require.Equal(t, 1, calls, "Error should be called second")
 				calls++
 			},
 		},
 	}
 
-	step.run(nil)
+	step.Run(nil)
 
 	require.Equal(t, 2, calls, "Both do and error should be called")
 }
@@ -75,9 +75,9 @@ func TestStepCallsOsExitIfAskedTo(t *testing.T) {
 	exitCalled := false
 	defer exitShouldBeCalledWith(t, 42, &exitCalled)()
 
-	step := &step{}
+	step := &Step{}
 
-	step.run(exit(42))
+	step.Run(exit(42))
 
 	require.True(t, exitCalled, "should have called exit")
 }
@@ -87,9 +87,9 @@ func TestStepRethrowsPanic(t *testing.T) {
 		require.Equal(t, 42, recover(), "should panicked with the same value")
 	}()
 
-	step := &step{}
+	step := &Step{}
 
-	step.run(42)
+	step.Run(42)
 
 	t.Fatalf("Should have panicked")
 }
@@ -97,9 +97,9 @@ func TestStepRethrowsPanic(t *testing.T) {
 func TestStepShouldNopIfNoSuccessNorPanic(t *testing.T) {
 	defer exitShouldNotCalled(t)()
 
-	step := &step{}
+	step := &Step{}
 
-	step.run(nil)
+	step.Run(nil)
 }
 
 func TestBeforeAndAfterFlowOrder(t *testing.T) {
