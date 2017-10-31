@@ -1,9 +1,13 @@
 package cli
 
-import "fmt"
+import (
+	"fmt"
+
+	"github.com/jawher/mow.cli/internal/lexer"
+)
 
 func uParse(c *Cmd) (*state, error) {
-	tokens, err := uTokenize(c.Spec)
+	tokens, err := lexer.Tokenize(c.Spec)
 	if err != nil {
 		return nil, err
 	}
@@ -14,11 +18,11 @@ func uParse(c *Cmd) (*state, error) {
 
 type uParser struct {
 	cmd    *Cmd
-	tokens []*uToken
+	tokens []*lexer.Token
 
 	tkpos int
 
-	matchedToken *uToken
+	matchedToken *lexer.Token
 
 	rejectOptions bool
 }
@@ -28,12 +32,12 @@ func (p *uParser) parse() (s *state, err error) {
 		if v := recover(); v != nil {
 			pos := len(p.cmd.Spec)
 			if !p.eof() {
-				pos = p.token().pos
+				pos = p.token().Pos
 			}
 			s = nil
 			switch t, ok := v.(string); ok {
 			case true:
-				err = &parseError{p.cmd.Spec, t, pos}
+				err = &lexer.ParseError{Input: p.cmd.Spec, Msg: t, Pos: pos}
 			default:
 				panic(v)
 			}
@@ -44,7 +48,7 @@ func (p *uParser) parse() (s *state, err error) {
 	s, e = p.seq(false)
 	if !p.eof() {
 		s = nil
-		err = &parseError{p.cmd.Spec, "Unexpected input", p.token().pos}
+		err = &lexer.ParseError{Input: p.cmd.Spec, Msg: "Unexpected input", Pos: p.token().Pos}
 		return
 	}
 
@@ -85,7 +89,7 @@ func (p *uParser) choice() (*state, *state) {
 	}
 
 	add(p.atom())
-	for p.found(utChoice) {
+	for p.found(lexer.TTChoice) {
 		add(p.atom())
 	}
 	return start, end
@@ -97,27 +101,27 @@ func (p *uParser) atom() (*state, *state) {
 	switch {
 	case p.eof():
 		panic("Unexpected end of input")
-	case p.found(utPos):
-		name := p.matchedToken.val
+	case p.found(lexer.TTPos):
+		name := p.matchedToken.Val
 		arg, declared := p.cmd.argsIdx[name]
 		if !declared {
 			p.back()
 			panic(fmt.Sprintf("Undeclared arg %s", name))
 		}
 		end = start.t(arg, newState(p.cmd))
-	case p.found(utOptions):
+	case p.found(lexer.TTOptions):
 		if p.rejectOptions {
 			p.back()
 			panic("No options after --")
 		}
 		end = newState(p.cmd)
 		start.t(optsMatcher{options: p.cmd.options, optionsIndex: p.cmd.optionsIdx}, end)
-	case p.found(utShortOpt):
+	case p.found(lexer.TTShortOpt):
 		if p.rejectOptions {
 			p.back()
 			panic("No options after --")
 		}
-		name := p.matchedToken.val
+		name := p.matchedToken.Val
 		opt, declared := p.cmd.optionsIdx[name]
 		if !declared {
 			p.back()
@@ -127,13 +131,13 @@ func (p *uParser) atom() (*state, *state) {
 			theOne:     opt,
 			optionsIdx: p.cmd.optionsIdx,
 		}, newState(p.cmd))
-		p.found(utOptValue)
-	case p.found(utLongOpt):
+		p.found(lexer.TTOptValue)
+	case p.found(lexer.TTLongOpt):
 		if p.rejectOptions {
 			p.back()
 			panic("No options after --")
 		}
-		name := p.matchedToken.val
+		name := p.matchedToken.Val
 		opt, declared := p.cmd.optionsIdx[name]
 		if !declared {
 			p.back()
@@ -143,14 +147,14 @@ func (p *uParser) atom() (*state, *state) {
 			theOne:     opt,
 			optionsIdx: p.cmd.optionsIdx,
 		}, newState(p.cmd))
-		p.found(utOptValue)
-	case p.found(utOptSeq):
+		p.found(lexer.TTOptValue)
+	case p.found(lexer.TTOptSeq):
 		if p.rejectOptions {
 			p.back()
 			panic("No options after --")
 		}
 		end = newState(p.cmd)
-		sq := p.matchedToken.val
+		sq := p.matchedToken.Val
 		opts := []*opt{}
 		for i := range sq {
 			sn := sq[i : i+1]
@@ -162,21 +166,21 @@ func (p *uParser) atom() (*state, *state) {
 			opts = append(opts, opt)
 		}
 		start.t(optsMatcher{options: opts, optionsIndex: p.cmd.optionsIdx}, end)
-	case p.found(utOpenPar):
+	case p.found(lexer.TTOpenPar):
 		start, end = p.seq(true)
-		p.expect(utClosePar)
-	case p.found(utOpenSq):
+		p.expect(lexer.TTClosePar)
+	case p.found(lexer.TTOpenSq):
 		start, end = p.seq(true)
 		start.t(shortcut, end)
-		p.expect(utCloseSq)
-	case p.found(utDoubleDash):
+		p.expect(lexer.TTCloseSq)
+	case p.found(lexer.TTDoubleDash):
 		p.rejectOptions = true
 		end = start.t(optsEnd, newState(p.cmd))
 		return start, end
 	default:
 		panic("Unexpected input: was expecting a command or a positional argument or an option")
 	}
-	if p.found(utRep) {
+	if p.found(lexer.TTRep) {
 		end.t(shortcut, start)
 	}
 	return start, end
@@ -184,28 +188,28 @@ func (p *uParser) atom() (*state, *state) {
 
 func (p *uParser) canAtom() bool {
 	switch {
-	case p.is(utPos):
+	case p.is(lexer.TTPos):
 		return true
-	case p.is(utOptions):
+	case p.is(lexer.TTOptions):
 		return true
-	case p.is(utShortOpt):
+	case p.is(lexer.TTShortOpt):
 		return true
-	case p.is(utLongOpt):
+	case p.is(lexer.TTLongOpt):
 		return true
-	case p.is(utOptSeq):
+	case p.is(lexer.TTOptSeq):
 		return true
-	case p.is(utOpenPar):
+	case p.is(lexer.TTOpenPar):
 		return true
-	case p.is(utOpenSq):
+	case p.is(lexer.TTOpenSq):
 		return true
-	case p.is(utDoubleDash):
+	case p.is(lexer.TTDoubleDash):
 		return true
 	default:
 		return false
 	}
 }
 
-func (p *uParser) found(t uTokenType) bool {
+func (p *uParser) found(t lexer.TokenType) bool {
 	if p.is(t) {
 		p.matchedToken = p.token()
 		p.tkpos++
@@ -214,14 +218,14 @@ func (p *uParser) found(t uTokenType) bool {
 	return false
 }
 
-func (p *uParser) is(t uTokenType) bool {
+func (p *uParser) is(t lexer.TokenType) bool {
 	if p.eof() {
 		return false
 	}
-	return p.token().typ == t
+	return p.token().Typ == t
 }
 
-func (p *uParser) expect(t uTokenType) {
+func (p *uParser) expect(t lexer.TokenType) {
 	if !p.found(t) {
 		panic(fmt.Sprintf("Was expecting %v", t))
 	}
@@ -234,7 +238,7 @@ func (p *uParser) eof() bool {
 	return p.tkpos >= len(p.tokens)
 }
 
-func (p *uParser) token() *uToken {
+func (p *uParser) token() *lexer.Token {
 	if p.eof() {
 		return nil
 	}
