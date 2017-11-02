@@ -4,11 +4,12 @@ import (
 	"fmt"
 
 	"github.com/jawher/mow.cli/internal/container"
+	"github.com/jawher/mow.cli/internal/fsm"
 	"github.com/jawher/mow.cli/internal/lexer"
 	"github.com/jawher/mow.cli/internal/matcher"
 )
 
-func uParse(c *Cmd) (*state, error) {
+func uParse(c *Cmd) (*fsm.State, error) {
 	tokens, err := lexer.Tokenize(c.Spec)
 	if err != nil {
 		return nil, err
@@ -29,7 +30,7 @@ type uParser struct {
 	rejectOptions bool
 }
 
-func (p *uParser) parse() (s *state, err error) {
+func (p *uParser) parse() (s *fsm.State, err error) {
 	defer func() {
 		if v := recover(); v != nil {
 			pos := len(p.cmd.Spec)
@@ -46,7 +47,7 @@ func (p *uParser) parse() (s *state, err error) {
 		}
 	}()
 	err = nil
-	var e *state
+	var e *fsm.State
 	s, e = p.seq(false)
 	if !p.eof() {
 		s = nil
@@ -54,18 +55,18 @@ func (p *uParser) parse() (s *state, err error) {
 		return
 	}
 
-	e.terminal = true
-	s.simplify()
+	e.Terminal = true
+	s.Simplify()
 	return
 }
 
-func (p *uParser) seq(required bool) (*state, *state) {
-	start := newState()
+func (p *uParser) seq(required bool) (*fsm.State, *fsm.State) {
+	start := fsm.NewState()
 	end := start
 
-	appendComp := func(s, e *state) {
-		for _, tr := range s.transitions {
-			end.t(tr.matcher, tr.next)
+	appendComp := func(s, e *fsm.State) {
+		for _, tr := range s.Transitions {
+			end.T(tr.Matcher, tr.Next)
 		}
 		end = e
 	}
@@ -82,12 +83,12 @@ func (p *uParser) seq(required bool) (*state, *state) {
 	return start, end
 }
 
-func (p *uParser) choice() (*state, *state) {
-	start, end := newState(), newState()
+func (p *uParser) choice() (*fsm.State, *fsm.State) {
+	start, end := fsm.NewState(), fsm.NewState()
 
-	add := func(s, e *state) {
-		start.t(matcher.NewShortcut(), s)
-		e.t(matcher.NewShortcut(), end)
+	add := func(s, e *fsm.State) {
+		start.T(matcher.NewShortcut(), s)
+		e.T(matcher.NewShortcut(), end)
 	}
 
 	add(p.atom())
@@ -97,9 +98,9 @@ func (p *uParser) choice() (*state, *state) {
 	return start, end
 }
 
-func (p *uParser) atom() (*state, *state) {
-	start := newState()
-	var end *state
+func (p *uParser) atom() (*fsm.State, *fsm.State) {
+	start := fsm.NewState()
+	var end *fsm.State
 	switch {
 	case p.eof():
 		panic("Unexpected end of input")
@@ -110,14 +111,14 @@ func (p *uParser) atom() (*state, *state) {
 			p.back()
 			panic(fmt.Sprintf("Undeclared arg %s", name))
 		}
-		end = start.t(matcher.NewArg(arg), newState())
+		end = start.T(matcher.NewArg(arg), fsm.NewState())
 	case p.found(lexer.TTOptions):
 		if p.rejectOptions {
 			p.back()
 			panic("No options after --")
 		}
-		end = newState()
-		start.t(matcher.NewOptions(p.cmd.options, p.cmd.optionsIdx), end)
+		end = fsm.NewState()
+		start.T(matcher.NewOptions(p.cmd.options, p.cmd.optionsIdx), end)
 	case p.found(lexer.TTShortOpt):
 		if p.rejectOptions {
 			p.back()
@@ -129,7 +130,7 @@ func (p *uParser) atom() (*state, *state) {
 			p.back()
 			panic(fmt.Sprintf("Undeclared option %s", name))
 		}
-		end = start.t(matcher.NewOpt(opt, p.cmd.optionsIdx), newState())
+		end = start.T(matcher.NewOpt(opt, p.cmd.optionsIdx), fsm.NewState())
 		p.found(lexer.TTOptValue)
 	case p.found(lexer.TTLongOpt):
 		if p.rejectOptions {
@@ -142,14 +143,14 @@ func (p *uParser) atom() (*state, *state) {
 			p.back()
 			panic(fmt.Sprintf("Undeclared option %s", name))
 		}
-		end = start.t(matcher.NewOpt(opt, p.cmd.optionsIdx), newState())
+		end = start.T(matcher.NewOpt(opt, p.cmd.optionsIdx), fsm.NewState())
 		p.found(lexer.TTOptValue)
 	case p.found(lexer.TTOptSeq):
 		if p.rejectOptions {
 			p.back()
 			panic("No options after --")
 		}
-		end = newState()
+		end = fsm.NewState()
 		sq := p.matchedToken.Val
 		opts := []*container.Container{}
 		for i := range sq {
@@ -161,23 +162,23 @@ func (p *uParser) atom() (*state, *state) {
 			}
 			opts = append(opts, opt)
 		}
-		start.t(matcher.NewOptions(opts, p.cmd.optionsIdx), end)
+		start.T(matcher.NewOptions(opts, p.cmd.optionsIdx), end)
 	case p.found(lexer.TTOpenPar):
 		start, end = p.seq(true)
 		p.expect(lexer.TTClosePar)
 	case p.found(lexer.TTOpenSq):
 		start, end = p.seq(true)
-		start.t(matcher.NewShortcut(), end)
+		start.T(matcher.NewShortcut(), end)
 		p.expect(lexer.TTCloseSq)
 	case p.found(lexer.TTDoubleDash):
 		p.rejectOptions = true
-		end = start.t(matcher.NewOptsEnd(), newState())
+		end = start.T(matcher.NewOptsEnd(), fsm.NewState())
 		return start, end
 	default:
 		panic("Unexpected input: was expecting a command or a positional argument or an option")
 	}
 	if p.found(lexer.TTRep) {
-		end.t(matcher.NewShortcut(), start)
+		end.T(matcher.NewShortcut(), start)
 	}
 	return start, end
 }

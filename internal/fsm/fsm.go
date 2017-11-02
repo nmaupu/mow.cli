@@ -1,4 +1,4 @@
-package cli
+package fsm
 
 import (
 	"sort"
@@ -10,23 +10,23 @@ import (
 	"github.com/jawher/mow.cli/internal/values"
 )
 
-type state struct {
+type State struct {
+	Terminal    bool
+	Transitions transitions
 	id          int
-	terminal    bool
-	transitions transitions
 }
 
-type transition struct {
-	matcher matcher.Matcher
-	next    *state
+type Transition struct {
+	Matcher matcher.Matcher
+	Next    *State
 }
 
-type transitions []*transition
+type transitions []*Transition
 
 func (t transitions) Len() int      { return len(t) }
 func (t transitions) Swap(i, j int) { t[i], t[j] = t[j], t[i] }
 func (t transitions) Less(i, j int) bool {
-	a, b := t[i].matcher, t[j].matcher
+	a, b := t[i].Matcher, t[j].Matcher
 	return a.Priority() < b.Priority()
 	//switch a.(type) {
 	//case matcher.shortcut:
@@ -42,19 +42,19 @@ func (t transitions) Less(i, j int) bool {
 
 var _id = 0
 
-func newState() *state {
+func NewState() *State {
 	_id++
-	return &state{id: _id, transitions: []*transition{}}
+	return &State{id: _id, Transitions: []*Transition{}}
 }
 
-func (s *state) t(matcher matcher.Matcher, next *state) *state {
-	s.transitions = append(s.transitions, &transition{matcher: matcher, next: next})
+func (s *State) T(matcher matcher.Matcher, next *State) *State {
+	s.Transitions = append(s.Transitions, &Transition{Matcher: matcher, Next: next})
 	return next
 }
 
-func (s *state) has(tr *transition) bool {
-	for _, t := range s.transitions {
-		if t.next == tr.next && t.matcher == tr.matcher {
+func (s *State) has(tr *Transition) bool {
+	for _, t := range s.Transitions {
+		if t.Next == tr.Next && t.Matcher == tr.Matcher {
 			return true
 		}
 	}
@@ -62,40 +62,40 @@ func (s *state) has(tr *transition) bool {
 }
 
 func removeTransitionAt(idx int, arr transitions) transitions {
-	res := make([]*transition, len(arr)-1)
+	res := make([]*Transition, len(arr)-1)
 	copy(res, arr[:idx])
 	copy(res[idx:], arr[idx+1:])
 	return res
 }
 
-func (s *state) simplify() {
-	simplify(s, s, map[*state]bool{})
+func (s *State) Simplify() {
+	simplify(s, s, map[*State]bool{})
 }
 
-func simplify(start, s *state, visited map[*state]bool) {
+func simplify(start, s *State, visited map[*State]bool) {
 	if visited[s] {
 		return
 	}
 	visited[s] = true
-	for _, tr := range s.transitions {
-		simplify(start, tr.next, visited)
+	for _, tr := range s.Transitions {
+		simplify(start, tr.Next, visited)
 	}
 	for s.simplifySelf(start) {
 	}
 }
 
-func (s *state) simplifySelf(start *state) bool {
-	for idx, tr := range s.transitions {
-		if matcher.IsShortcut(tr.matcher) {
-			next := tr.next
-			s.transitions = removeTransitionAt(idx, s.transitions)
-			for _, tr := range next.transitions {
+func (s *State) simplifySelf(start *State) bool {
+	for idx, tr := range s.Transitions {
+		if matcher.IsShortcut(tr.Matcher) {
+			next := tr.Next
+			s.Transitions = removeTransitionAt(idx, s.Transitions)
+			for _, tr := range next.Transitions {
 				if !s.has(tr) {
-					s.transitions = append(s.transitions, tr)
+					s.Transitions = append(s.Transitions, tr)
 				}
 			}
-			if next.terminal {
-				s.terminal = true
+			if next.Terminal {
+				s.Terminal = true
 			}
 			return true
 		}
@@ -103,29 +103,29 @@ func (s *state) simplifySelf(start *state) bool {
 	return false
 }
 
-func (s *state) dot() string {
-	trs := dot(s, map[*state]bool{})
+func (s *State) dot() string {
+	trs := dot(s, map[*State]bool{})
 	return fmt.Sprintf("digraph G {\n\trankdir=LR\n%s\n}\n", strings.Join(trs, "\n"))
 }
 
-func dot(s *state, visited map[*state]bool) []string {
+func dot(s *State, visited map[*State]bool) []string {
 	res := []string{}
 	if visited[s] {
 		return res
 	}
 	visited[s] = true
 
-	for _, tr := range s.transitions {
-		res = append(res, fmt.Sprintf("\tS%d -> S%d [label=\"%v\"]", s.id, tr.next.id, tr.matcher))
-		res = append(res, dot(tr.next, visited)...)
+	for _, tr := range s.Transitions {
+		res = append(res, fmt.Sprintf("\tS%d -> S%d [label=\"%v\"]", s.id, tr.Next.id, tr.Matcher))
+		res = append(res, dot(tr.Next, visited)...)
 	}
-	if s.terminal {
+	if s.Terminal {
 		res = append(res, fmt.Sprintf("\tS%d [peripheries=2]", s.id))
 	}
 	return res
 }
 
-func (s *state) parse(args []string) error {
+func (s *State) Parse(args []string) error {
 	pc := matcher.NewParseContext()
 	ok, err := s.apply(args, pc)
 	if err != nil {
@@ -170,11 +170,11 @@ func (s *state) parse(args []string) error {
 	return nil
 }
 
-func (s *state) apply(args []string, pc matcher.ParseContext) (bool, error) {
-	if s.terminal && len(args) == 0 {
+func (s *State) apply(args []string, pc matcher.ParseContext) (bool, error) {
+	if s.Terminal && len(args) == 0 {
 		return true, nil
 	}
-	sort.Sort(s.transitions)
+	sort.Sort(s.Transitions)
 
 	if len(args) > 0 {
 		arg := args[0]
@@ -186,22 +186,22 @@ func (s *state) apply(args []string, pc matcher.ParseContext) (bool, error) {
 	}
 
 	type match struct {
-		tr  *transition
+		tr  *Transition
 		rem []string
 		pc  matcher.ParseContext
 	}
 
 	matches := []*match{}
-	for _, tr := range s.transitions {
+	for _, tr := range s.Transitions {
 		fresh := matcher.NewParseContext()
 		fresh.RejectOptions = pc.RejectOptions
-		if ok, rem := tr.matcher.Match(args, &fresh); ok {
+		if ok, rem := tr.Matcher.Match(args, &fresh); ok {
 			matches = append(matches, &match{tr, rem, fresh})
 		}
 	}
 
 	for _, m := range matches {
-		ok, err := m.tr.next.apply(m.rem, m.pc)
+		ok, err := m.tr.Next.apply(m.rem, m.pc)
 		if err != nil {
 			return false, err
 		}

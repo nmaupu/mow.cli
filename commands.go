@@ -8,6 +8,7 @@ import (
 
 	"github.com/jawher/mow.cli/internal/container"
 	"github.com/jawher/mow.cli/internal/flow"
+	"github.com/jawher/mow.cli/internal/fsm"
 	"github.com/jawher/mow.cli/internal/values"
 )
 
@@ -43,7 +44,7 @@ type Cmd struct {
 
 	parents []string
 
-	fsm *state
+	fsm *fsm.State
 }
 
 /*
@@ -443,7 +444,7 @@ func (c *Cmd) parse(args []string, entry, inFlow, outFlow *flow.Step) error {
 
 	nargsLen := c.getOptsAndArgs(args)
 
-	if err := c.fsm.parse(args[:nargsLen]); err != nil {
+	if err := c.fsm.Parse(args[:nargsLen]); err != nil {
 		fmt.Fprintf(stdErr, "Error: %s\n", err.Error())
 		c.PrintHelp()
 		c.onError(err)
