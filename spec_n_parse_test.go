@@ -10,6 +10,7 @@ import (
 
 	"testing"
 
+	"github.com/jawher/mow.cli/internal/container"
 	"github.com/jawher/mow.cli/internal/flow"
 )
 
@@ -18,8 +19,8 @@ func okCmd(t *testing.T, spec string, init CmdInitializer, args []string) {
 
 	cmd := &Cmd{
 		name:       "test",
-		optionsIdx: map[string]*opt{},
-		argsIdx:    map[string]*arg{},
+		optionsIdx: map[string]*container.Container{},
+		argsIdx:    map[string]*container.Container{},
 	}
 	cmd.Spec = spec
 	cmd.ErrorHandling = flag.ContinueOnError
@@ -38,8 +39,8 @@ func failCmd(t *testing.T, spec string, init CmdInitializer, args []string) {
 
 	cmd := &Cmd{
 		name:       "test",
-		optionsIdx: map[string]*opt{},
-		argsIdx:    map[string]*arg{},
+		optionsIdx: map[string]*container.Container{},
+		argsIdx:    map[string]*container.Container{},
 	}
 	cmd.Spec = spec
 	cmd.ErrorHandling = flag.ContinueOnError
@@ -56,8 +57,8 @@ func failCmd(t *testing.T, spec string, init CmdInitializer, args []string) {
 func badSpec(t *testing.T, spec string, init CmdInitializer) {
 	cmd := &Cmd{
 		name:       "test",
-		optionsIdx: map[string]*opt{},
-		argsIdx:    map[string]*arg{},
+		optionsIdx: map[string]*container.Container{},
+		argsIdx:    map[string]*container.Container{},
 	}
 	cmd.Spec = spec
 	cmd.ErrorHandling = flag.ContinueOnError

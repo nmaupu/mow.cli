@@ -3,7 +3,9 @@ package cli
 import (
 	"fmt"
 
+	"github.com/jawher/mow.cli/internal/container"
 	"github.com/jawher/mow.cli/internal/lexer"
+	"github.com/jawher/mow.cli/internal/matcher"
 )
 
 func uParse(c *Cmd) (*state, error) {
@@ -58,7 +60,7 @@ func (p *uParser) parse() (s *state, err error) {
 }
 
 func (p *uParser) seq(required bool) (*state, *state) {
-	start := newState(p.cmd)
+	start := newState()
 	end := start
 
 	appendComp := func(s, e *state) {
@@ -81,11 +83,11 @@ func (p *uParser) seq(required bool) (*state, *state) {
 }
 
 func (p *uParser) choice() (*state, *state) {
-	start, end := newState(p.cmd), newState(p.cmd)
+	start, end := newState(), newState()
 
 	add := func(s, e *state) {
-		start.t(shortcut, s)
-		e.t(shortcut, end)
+		start.t(matcher.NewShortcut(), s)
+		e.t(matcher.NewShortcut(), end)
 	}
 
 	add(p.atom())
@@ -96,7 +98,7 @@ func (p *uParser) choice() (*state, *state) {
 }
 
 func (p *uParser) atom() (*state, *state) {
-	start := newState(p.cmd)
+	start := newState()
 	var end *state
 	switch {
 	case p.eof():
@@ -108,14 +110,14 @@ func (p *uParser) atom() (*state, *state) {
 			p.back()
 			panic(fmt.Sprintf("Undeclared arg %s", name))
 		}
-		end = start.t(arg, newState(p.cmd))
+		end = start.t(matcher.NewArg(arg), newState())
 	case p.found(lexer.TTOptions):
 		if p.rejectOptions {
 			p.back()
 			panic("No options after --")
 		}
-		end = newState(p.cmd)
-		start.t(optsMatcher{options: p.cmd.options, optionsIndex: p.cmd.optionsIdx}, end)
+		end = newState()
+		start.t(matcher.NewOptions(p.cmd.options, p.cmd.optionsIdx), end)
 	case p.found(lexer.TTShortOpt):
 		if p.rejectOptions {
 			p.back()
@@ -127,10 +129,7 @@ func (p *uParser) atom() (*state, *state) {
 			p.back()
 			panic(fmt.Sprintf("Undeclared option %s", name))
 		}
-		end = start.t(&optMatcher{
-			theOne:     opt,
-			optionsIdx: p.cmd.optionsIdx,
-		}, newState(p.cmd))
+		end = start.t(matcher.NewOpt(opt, p.cmd.optionsIdx), newState())
 		p.found(lexer.TTOptValue)
 	case p.found(lexer.TTLongOpt):
 		if p.rejectOptions {
@@ -143,19 +142,16 @@ func (p *uParser) atom() (*state, *state) {
 			p.back()
 			panic(fmt.Sprintf("Undeclared option %s", name))
 		}
-		end = start.t(&optMatcher{
-			theOne:     opt,
-			optionsIdx: p.cmd.optionsIdx,
-		}, newState(p.cmd))
+		end = start.t(matcher.NewOpt(opt, p.cmd.optionsIdx), newState())
 		p.found(lexer.TTOptValue)
 	case p.found(lexer.TTOptSeq):
 		if p.rejectOptions {
 			p.back()
 			panic("No options after --")
 		}
-		end = newState(p.cmd)
+		end = newState()
 		sq := p.matchedToken.Val
-		opts := []*opt{}
+		opts := []*container.Container{}
 		for i := range sq {
 			sn := sq[i : i+1]
 			opt, declared := p.cmd.optionsIdx["-"+sn]
@@ -165,23 +161,23 @@ func (p *uParser) atom() (*state, *state) {
 			}
 			opts = append(opts, opt)
 		}
-		start.t(optsMatcher{options: opts, optionsIndex: p.cmd.optionsIdx}, end)
+		start.t(matcher.NewOptions(opts, p.cmd.optionsIdx), end)
 	case p.found(lexer.TTOpenPar):
 		start, end = p.seq(true)
 		p.expect(lexer.TTClosePar)
 	case p.found(lexer.TTOpenSq):
 		start, end = p.seq(true)
-		start.t(shortcut, end)
+		start.t(matcher.NewShortcut(), end)
 		p.expect(lexer.TTCloseSq)
 	case p.found(lexer.TTDoubleDash):
 		p.rejectOptions = true
-		end = start.t(optsEnd, newState(p.cmd))
+		end = start.t(matcher.NewOptsEnd(), newState())
 		return start, end
 	default:
 		panic("Unexpected input: was expecting a command or a positional argument or an option")
 	}
 	if p.found(lexer.TTRep) {
-		end.t(shortcut, start)
+		end.t(matcher.NewShortcut(), start)
 	}
 	return start, end
 }

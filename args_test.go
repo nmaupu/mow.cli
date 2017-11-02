@@ -5,11 +5,12 @@ import (
 	"strconv"
 	"testing"
 
+	"github.com/jawher/mow.cli/internal/container"
 	"github.com/stretchr/testify/require"
 )
 
 func TestStringArg(t *testing.T) {
-	cmd := &Cmd{argsIdx: map[string]*arg{}}
+	cmd := &Cmd{argsIdx: map[string]*container.Container{}}
 	a := cmd.String(StringArg{Name: "a", Value: "test"})
 	require.Equal(t, "test", *a)
 
@@ -29,7 +30,7 @@ func TestStringArg(t *testing.T) {
 }
 
 func TestBoolArg(t *testing.T) {
-	cmd := &Cmd{argsIdx: map[string]*arg{}}
+	cmd := &Cmd{argsIdx: map[string]*container.Container{}}
 	a := cmd.Bool(BoolArg{Name: "a", Value: true, Desc: ""})
 	require.True(t, *a)
 
@@ -59,7 +60,7 @@ func TestBoolArg(t *testing.T) {
 }
 
 func TestIntArg(t *testing.T) {
-	cmd := &Cmd{argsIdx: map[string]*arg{}}
+	cmd := &Cmd{argsIdx: map[string]*container.Container{}}
 	a := cmd.Int(IntArg{Name: "a", Value: -1, Desc: ""})
 	require.Equal(t, -1, *a)
 
@@ -89,7 +90,7 @@ func TestIntArg(t *testing.T) {
 }
 
 func TestStringsArg(t *testing.T) {
-	cmd := &Cmd{argsIdx: map[string]*arg{}}
+	cmd := &Cmd{argsIdx: map[string]*container.Container{}}
 	v := []string{"test"}
 	a := cmd.Strings(StringsArg{Name: "a", Value: v, Desc: ""})
 	require.Equal(t, v, *a)
@@ -114,7 +115,7 @@ func TestStringsArg(t *testing.T) {
 }
 
 func TestIntsArg(t *testing.T) {
-	cmd := &Cmd{argsIdx: map[string]*arg{}}
+	cmd := &Cmd{argsIdx: map[string]*container.Container{}}
 
 	vi := []int{42}
 	a := cmd.Ints(IntsArg{Name: "a", Value: vi, Desc: ""})

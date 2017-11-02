@@ -6,6 +6,7 @@ import (
 
 	"fmt"
 
+	"github.com/jawher/mow.cli/internal/matcher"
 	"github.com/jawher/mow.cli/internal/values"
 )
 
@@ -13,11 +14,10 @@ type state struct {
 	id          int
 	terminal    bool
 	transitions transitions
-	cmd         *Cmd
 }
 
 type transition struct {
-	matcher upMatcher
+	matcher matcher.Matcher
 	next    *state
 }
 
@@ -26,29 +26,29 @@ type transitions []*transition
 func (t transitions) Len() int      { return len(t) }
 func (t transitions) Swap(i, j int) { t[i], t[j] = t[j], t[i] }
 func (t transitions) Less(i, j int) bool {
-	a, _ := t[i].matcher, t[j].matcher
-	switch a.(type) {
-	case upShortcut:
-		return false
-	case upOptsEnd:
-		return false
-	case *arg:
-		return false
-	default:
-		return true
-	}
-
+	a, b := t[i].matcher, t[j].matcher
+	return a.Priority() < b.Priority()
+	//switch a.(type) {
+	//case matcher.shortcut:
+	//	return false
+	//case matcher.optsEnd:
+	//	return false
+	//case *matcher.Arg:
+	//	return false
+	//default:
+	//	return true
+	//}
 }
 
 var _id = 0
 
-func newState(cmd *Cmd) *state {
+func newState() *state {
 	_id++
-	return &state{_id, false, []*transition{}, cmd}
+	return &state{id: _id, transitions: []*transition{}}
 }
 
-func (s *state) t(matcher upMatcher, next *state) *state {
-	s.transitions = append(s.transitions, &transition{matcher, next})
+func (s *state) t(matcher matcher.Matcher, next *state) *state {
+	s.transitions = append(s.transitions, &transition{matcher: matcher, next: next})
 	return next
 }
 
@@ -59,22 +59,6 @@ func (s *state) has(tr *transition) bool {
 		}
 	}
 	return false
-}
-
-func incoming(s, into *state, visited map[*state]bool) []*transition {
-	res := []*transition{}
-	if visited[s] {
-		return res
-	}
-	visited[s] = true
-
-	for _, tr := range s.transitions {
-		if tr.next == into {
-			res = append(res, tr)
-		}
-		res = append(res, incoming(tr.next, into, visited)...)
-	}
-	return res
 }
 
 func removeTransitionAt(idx int, arr transitions) transitions {
@@ -102,7 +86,7 @@ func simplify(start, s *state, visited map[*state]bool) {
 
 func (s *state) simplifySelf(start *state) bool {
 	for idx, tr := range s.transitions {
-		if _, ok := tr.matcher.(upShortcut); ok {
+		if matcher.IsShortcut(tr.matcher) {
 			next := tr.next
 			s.transitions = removeTransitionAt(idx, s.transitions)
 			for _, tr := range next.transitions {
@@ -141,34 +125,8 @@ func dot(s *state, visited map[*state]bool) []string {
 	return res
 }
 
-type parseContext struct {
-	args          map[*arg][]string
-	opts          map[*opt][]string
-	excludedOpts  map[*opt]struct{}
-	rejectOptions bool
-}
-
-func newParseContext() parseContext {
-	return parseContext{
-		args:          map[*arg][]string{},
-		opts:          map[*opt][]string{},
-		excludedOpts:  map[*opt]struct{}{},
-		rejectOptions: false,
-	}
-}
-
-func (pc parseContext) merge(o parseContext) {
-	for k, vs := range o.args {
-		pc.args[k] = append(pc.args[k], vs...)
-	}
-
-	for k, vs := range o.opts {
-		pc.opts[k] = append(pc.opts[k], vs...)
-	}
-}
-
 func (s *state) parse(args []string) error {
-	pc := newParseContext()
+	pc := matcher.NewParseContext()
 	ok, err := s.apply(args, pc)
 	if err != nil {
 		return err
@@ -177,42 +135,42 @@ func (s *state) parse(args []string) error {
 		return fmt.Errorf("incorrect usage")
 	}
 
-	for opt, vs := range pc.opts {
-		if multiValued, ok := opt.value.(values.MultiValued); ok {
+	for opt, vs := range pc.Opts {
+		if multiValued, ok := opt.Value.(values.MultiValued); ok {
 			multiValued.Clear()
-			opt.valueSetFromEnv = false
+			opt.ValueSetFromEnv = false
 		}
 		for _, v := range vs {
-			if err := opt.value.Set(v); err != nil {
+			if err := opt.Value.Set(v); err != nil {
 				return err
 			}
 		}
 
-		if opt.valueSetByUser != nil {
-			*opt.valueSetByUser = true
+		if opt.ValueSetByUser != nil {
+			*opt.ValueSetByUser = true
 		}
 	}
 
-	for arg, vs := range pc.args {
-		if multiValued, ok := arg.value.(values.MultiValued); ok {
+	for arg, vs := range pc.Args {
+		if multiValued, ok := arg.Value.(values.MultiValued); ok {
 			multiValued.Clear()
-			arg.valueSetFromEnv = false
+			arg.ValueSetFromEnv = false
 		}
 		for _, v := range vs {
-			if err := arg.value.Set(v); err != nil {
+			if err := arg.Value.Set(v); err != nil {
 				return err
 			}
 		}
 
-		if arg.valueSetByUser != nil {
-			*arg.valueSetByUser = true
+		if arg.ValueSetByUser != nil {
+			*arg.ValueSetByUser = true
 		}
 	}
 
 	return nil
 }
 
-func (s *state) apply(args []string, pc parseContext) (bool, error) {
+func (s *state) apply(args []string, pc matcher.ParseContext) (bool, error) {
 	if s.terminal && len(args) == 0 {
 		return true, nil
 	}
@@ -221,8 +179,8 @@ func (s *state) apply(args []string, pc parseContext) (bool, error) {
 	if len(args) > 0 {
 		arg := args[0]
 
-		if !pc.rejectOptions && arg == "--" {
-			pc.rejectOptions = true
+		if !pc.RejectOptions && arg == "--" {
+			pc.RejectOptions = true
 			args = args[1:]
 		}
 	}
@@ -230,14 +188,14 @@ func (s *state) apply(args []string, pc parseContext) (bool, error) {
 	type match struct {
 		tr  *transition
 		rem []string
-		pc  parseContext
+		pc  matcher.ParseContext
 	}
 
 	matches := []*match{}
 	for _, tr := range s.transitions {
-		fresh := newParseContext()
-		fresh.rejectOptions = pc.rejectOptions
-		if ok, rem := tr.matcher.match(args, &fresh); ok {
+		fresh := matcher.NewParseContext()
+		fresh.RejectOptions = pc.RejectOptions
+		if ok, rem := tr.matcher.Match(args, &fresh); ok {
 			matches = append(matches, &match{tr, rem, fresh})
 		}
 	}
@@ -248,7 +206,7 @@ func (s *state) apply(args []string, pc parseContext) (bool, error) {
 			return false, err
 		}
 		if ok {
-			pc.merge(m.pc)
+			pc.Merge(m.pc)
 			return true, nil
 		}
 	}

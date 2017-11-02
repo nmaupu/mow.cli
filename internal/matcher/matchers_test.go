@@ -1,64 +1,70 @@
-package cli
+package matcher
 
 import (
 	"testing"
 
 	"time"
 
+	"github.com/jawher/mow.cli/internal/container"
+	"github.com/jawher/mow.cli/internal/values"
 	"github.com/stretchr/testify/require"
 )
 
+//TODO: test priority
+//TODO: test that all matchers are comparable
+
 func TestShortcut(t *testing.T) {
-	pc := &parseContext{}
+	pc := &ParseContext{}
 	args := []string{"a", "b"}
-	ok, nargs := shortcut.match(args, pc)
+	ok, nargs := theShortcut.Match(args, pc)
 	require.True(t, ok, "shortcut always matches")
 	require.Equal(t, args, nargs, "shortcut doesn't touch the passed args")
 }
 
 func TestOptsEnd(t *testing.T) {
-	pc := &parseContext{}
+	pc := &ParseContext{}
 	args := []string{"a", "b"}
-	ok, nargs := optsEnd.match(args, pc)
+	ok, nargs := theOptsEnd.Match(args, pc)
 	require.True(t, ok, "optsEnd always matches")
 	require.Equal(t, args, nargs, "optsEnd doesn't touch the passed args")
-	require.True(t, pc.rejectOptions, "optsEnd sets the rejectOptions flag")
+	require.True(t, pc.RejectOptions, "optsEnd sets the rejectOptions flag")
 }
 
 func TestArgMatcher(t *testing.T) {
-	arg := &arg{name: "X"}
+	arg := &container.Container{Name: "X"}
+	argMatcher := arg{arg: arg}
 
 	{
-		pc := newParseContext()
+		pc := NewParseContext()
 		args := []string{"a", "b"}
-		ok, nargs := arg.match(args, &pc)
+		ok, nargs := argMatcher.Match(args, &pc)
 		require.True(t, ok, "arg should match")
 		require.Equal(t, []string{"b"}, nargs, "arg should consume the matched value")
-		require.Equal(t, []string{"a"}, pc.args[arg], "arg should stored the matched value")
+		require.Equal(t, []string{"a"}, pc.Args[arg], "arg should stored the matched value")
 	}
 	{
-		pc := newParseContext()
-		ok, _ := arg.match([]string{"-v"}, &pc)
+		pc := NewParseContext()
+		ok, _ := argMatcher.Match([]string{"-v"}, &pc)
 		require.False(t, ok, "arg should not match options")
 	}
 	{
-		pc := newParseContext()
-		pc.rejectOptions = true
-		ok, _ := arg.match([]string{"-v"}, &pc)
+		pc := NewParseContext()
+		pc.RejectOptions = true
+		ok, _ := argMatcher.Match([]string{"-v"}, &pc)
 		require.True(t, ok, "arg should match options when the reject flag is set")
 	}
 }
 
 func TestBoolOptMatcher(t *testing.T) {
-	forceOpt := &opt{names: []string{"-f", "--force"}, value: values.NewBool(new(bool), false)}
-	optMatcher := &optMatcher{
+	forceOpt := &container.Container{Names: []string{"-f", "--force"}, Value: values.NewBool(new(bool), false)}
+	optMatcher := opt{
 		theOne: forceOpt,
-		optionsIdx: map[string]*opt{
+		index: map[string]*container.Container{
 			"-f":      forceOpt,
 			"--force": forceOpt,
-			"-g":      {names: []string{"-g"}, value: values.NewBool(new(bool), false)},
-			"-x":      {names: []string{"-x"}, value: values.NewBool(new(bool), false)},
-			"-y":      {names: []string{"-y"}, value: values.NewBool(new(bool), false)},
+			"-g":      {Names: []string{"-g"}, Value: values.NewBool(new(bool), false)},
+			"-x":      {Names: []string{"-x"}, Value: values.NewBool(new(bool), false)},
+			"-y":      {Names: []string{"-y"}, Value: values.NewBool(new(bool), false)},
 		},
 	}
 	cases := []struct {
@@ -79,26 +85,26 @@ func TestBoolOptMatcher(t *testing.T) {
 	}
 	for _, cas := range cases {
 		t.Logf("Testing case: %#v", cas)
-		pc := newParseContext()
-		ok, nargs := optMatcher.match(cas.args, &pc)
+		pc := NewParseContext()
+		ok, nargs := optMatcher.Match(cas.args, &pc)
 		require.True(t, ok, "opt should match")
 		require.Equal(t, cas.nargs, nargs, "opt should consume the option name")
-		require.Equal(t, cas.val, pc.opts[forceOpt], "true should stored as the option's value")
+		require.Equal(t, cas.val, pc.Opts[forceOpt], "true should stored as the option's value")
 
-		pc = newParseContext()
-		pc.rejectOptions = true
-		nok, _ := optMatcher.match(cas.args, &pc)
+		pc = NewParseContext()
+		pc.RejectOptions = true
+		nok, _ := optMatcher.Match(cas.args, &pc)
 		require.False(t, nok, "opt shouldn't match when rejectOptions flag is set")
 	}
 }
 
 func TestOptMatcher(t *testing.T) {
 	names := []string{"-f", "--force"}
-	opts := []*opt{
-		{names: names, value: values.NewString(new(string), "")},
-		{names: names, value: values.NewInt(new(int), 0)},
-		{names: names, value: values.NewStrings(new([]string), nil)},
-		{names: names, value: values.NewInts(new([]int), nil)},
+	opts := []*container.Container{
+		{Names: names, Value: values.NewString(new(string), "")},
+		{Names: names, Value: values.NewInt(new(int), 0)},
+		{Names: names, Value: values.NewStrings(new([]string), nil)},
+		{Names: names, Value: values.NewInts(new([]int), nil)},
 	}
 
 	cases := []struct {
@@ -118,41 +124,41 @@ func TestOptMatcher(t *testing.T) {
 	for _, cas := range cases {
 		for _, forceOpt := range opts {
 			t.Logf("Testing case: %#v with opt: %#v", cas, forceOpt)
-			optMatcher := &optMatcher{
+			optMatcher := opt{
 				theOne: forceOpt,
-				optionsIdx: map[string]*opt{
+				index: map[string]*container.Container{
 					"-f":      forceOpt,
 					"--force": forceOpt,
-					"-a":      {names: []string{"-a"}, value: values.NewBool(new(bool), false)},
+					"-a":      {Names: []string{"-a"}, Value: values.NewBool(new(bool), false)},
 				},
 			}
 
-			pc := newParseContext()
-			ok, nargs := optMatcher.match(cas.args, &pc)
-			require.True(t, ok, "opt %#v should match args %v, %v", forceOpt, cas.args, forceOpt.isBool())
+			pc := NewParseContext()
+			ok, nargs := optMatcher.Match(cas.args, &pc)
+			require.True(t, ok, "opt %#v should match args %v, %v", forceOpt, cas.args, values.IsBool(forceOpt.Value))
 			require.Equal(t, cas.nargs, nargs, "opt should consume the option name")
-			require.Equal(t, cas.val, pc.opts[forceOpt], "true should stored as the option's value")
+			require.Equal(t, cas.val, pc.Opts[forceOpt], "true should stored as the option's value")
 
-			pc = newParseContext()
-			pc.rejectOptions = true
-			nok, _ := optMatcher.match(cas.args, &pc)
+			pc = NewParseContext()
+			pc.RejectOptions = true
+			nok, _ := optMatcher.Match(cas.args, &pc)
 			require.False(t, nok, "opt shouldn't match when rejectOptions flag is set")
 		}
 	}
 }
 
 func TestOptsMatcher(t *testing.T) {
-	opts := optsMatcher{
-		options: []*opt{
-			{names: []string{"-f", "--force"}, value: values.NewBool(new(bool), false)},
-			{names: []string{"-g", "--green"}, value: values.NewString(new(string), "")},
+	opts := options{
+		options: []*container.Container{
+			{Names: []string{"-f", "--force"}, Value: values.NewBool(new(bool), false)},
+			{Names: []string{"-g", "--green"}, Value: values.NewString(new(string), "")},
 		},
-		optionsIndex: map[string]*opt{},
+		index: map[string]*container.Container{},
 	}
 
 	for _, o := range opts.options {
-		for _, n := range o.names {
-			opts.optionsIndex[n] = o
+		for _, n := range o.Names {
+			opts.index[n] = o
 		}
 	}
 
@@ -180,40 +186,40 @@ func TestOptsMatcher(t *testing.T) {
 
 	for _, cas := range cases {
 		t.Logf("testing with args %v", cas.args)
-		pc := newParseContext()
-		ok, nargs := opts.match(cas.args, &pc)
+		pc := NewParseContext()
+		ok, nargs := opts.Match(cas.args, &pc)
 		require.True(t, ok, "opts should match")
 		require.Equal(t, cas.nargs, nargs, "opts should consume the option name")
 		for i, opt := range opts.options {
-			require.Equal(t, cas.val[i], pc.opts[opt], "the option value for %v should be stored", opt)
+			require.Equal(t, cas.val[i], pc.Opts[opt], "the option value for %v should be stored", opt)
 		}
 
-		pc = newParseContext()
-		pc.rejectOptions = true
-		nok, _ := opts.match(cas.args, &pc)
+		pc = NewParseContext()
+		pc.RejectOptions = true
+		nok, _ := opts.Match(cas.args, &pc)
 		require.False(t, nok, "opts shouldn't match when rejectOptions flag is set")
 	}
 }
 
 // Issue 55
 func TestOptsMatcherInfiniteLoop(t *testing.T) {
-	opts := optsMatcher{
-		options: []*opt{
-			{names: []string{"-g"}, value: values.NewString(new(string), ""), valueSetFromEnv: true},
+	opts := options{
+		options: []*container.Container{
+			{Names: []string{"-g"}, Value: values.NewString(new(string), ""), ValueSetFromEnv: true},
 		},
-		optionsIndex: map[string]*opt{},
+		index: map[string]*container.Container{},
 	}
 
 	for _, o := range opts.options {
-		for _, n := range o.names {
-			opts.optionsIndex[n] = o
+		for _, n := range o.Names {
+			opts.index[n] = o
 		}
 	}
 
 	done := make(chan struct{}, 1)
-	pc := newParseContext()
+	pc := NewParseContext()
 	go func() {
-		opts.match([]string{"-x"}, &pc)
+		opts.Match([]string{"-x"}, &pc)
 		done <- struct{}{}
 	}()
 

@@ -5,11 +5,12 @@ import (
 	"strconv"
 	"testing"
 
+	"github.com/jawher/mow.cli/internal/container"
 	"github.com/stretchr/testify/require"
 )
 
 func TestStringOpt(t *testing.T) {
-	cmd := &Cmd{optionsIdx: map[string]*opt{}}
+	cmd := &Cmd{optionsIdx: map[string]*container.Container{}}
 	a := cmd.String(StringOpt{Name: "a", Value: "test", Desc: ""})
 	require.Equal(t, "test", *a)
 
@@ -29,7 +30,7 @@ func TestStringOpt(t *testing.T) {
 }
 
 func TestBoolOpt(t *testing.T) {
-	cmd := &Cmd{optionsIdx: map[string]*opt{}}
+	cmd := &Cmd{optionsIdx: map[string]*container.Container{}}
 	a := cmd.Bool(BoolOpt{Name: "a", Value: true, Desc: ""})
 	require.True(t, *a)
 
@@ -59,7 +60,7 @@ func TestBoolOpt(t *testing.T) {
 }
 
 func TestIntOpt(t *testing.T) {
-	cmd := &Cmd{optionsIdx: map[string]*opt{}}
+	cmd := &Cmd{optionsIdx: map[string]*container.Container{}}
 	a := cmd.Int(IntOpt{Name: "a", Value: -1, Desc: ""})
 	require.Equal(t, -1, *a)
 
@@ -89,7 +90,7 @@ func TestIntOpt(t *testing.T) {
 }
 
 func TestStringsOpt(t *testing.T) {
-	cmd := &Cmd{optionsIdx: map[string]*opt{}}
+	cmd := &Cmd{optionsIdx: map[string]*container.Container{}}
 	v := []string{"test"}
 	a := cmd.Strings(StringsOpt{Name: "a", Value: v, Desc: ""})
 	require.Equal(t, v, *a)
@@ -114,7 +115,7 @@ func TestStringsOpt(t *testing.T) {
 }
 
 func TestIntsOpt(t *testing.T) {
-	cmd := &Cmd{optionsIdx: map[string]*opt{}}
+	cmd := &Cmd{optionsIdx: map[string]*container.Container{}}
 	vi := []int{42}
 	a := cmd.Ints(IntsOpt{Name: "a", Value: vi, Desc: ""})
 	require.Equal(t, vi, *a)

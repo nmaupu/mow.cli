@@ -6,6 +6,7 @@ import (
 	"io"
 	"os"
 
+	"github.com/jawher/mow.cli/internal/container"
 	"github.com/jawher/mow.cli/internal/flow"
 )
 
@@ -19,7 +20,7 @@ type Cli struct {
 
 type cliVersion struct {
 	version string
-	option  *opt
+	option  *container.Container
 }
 
 /*
@@ -37,8 +38,8 @@ func App(name, desc string) *Cli {
 		Cmd: &Cmd{
 			name:          name,
 			desc:          desc,
-			optionsIdx:    map[string]*opt{},
-			argsIdx:       map[string]*arg{},
+			optionsIdx:    map[string]*container.Container{},
+			argsIdx:       map[string]*container.Container{},
 			ErrorHandling: flag.ExitOnError,
 		},
 	}
@@ -76,7 +77,7 @@ func (cli *Cli) parse(args []string, entry, inFlow, outFlow *flow.Step) error {
 }
 
 func (cli *Cli) versionSetAndRequested(args []string) bool {
-	return cli.version != nil && cli.isFlagSet(args, cli.version.option.names)
+	return cli.version != nil && cli.isFlagSet(args, cli.version.option.Names)
 }
 
 /*

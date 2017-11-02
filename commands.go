@@ -6,6 +6,7 @@ import (
 	"strings"
 	"text/tabwriter"
 
+	"github.com/jawher/mow.cli/internal/container"
 	"github.com/jawher/mow.cli/internal/flow"
 	"github.com/jawher/mow.cli/internal/values"
 )
@@ -35,10 +36,10 @@ type Cmd struct {
 	desc    string
 
 	commands   []*Cmd
-	options    []*opt
-	optionsIdx map[string]*opt
-	args       []*arg
-	argsIdx    map[string]*arg
+	options    []*container.Container
+	optionsIdx map[string]*container.Container
+	args       []*container.Container
+	argsIdx    map[string]*container.Container
 
 	parents []string
 
@@ -114,10 +115,10 @@ func (c *Cmd) Command(name, desc string, init CmdInitializer) {
 		desc:          desc,
 		init:          init,
 		commands:      []*Cmd{},
-		options:       []*opt{},
-		optionsIdx:    map[string]*opt{},
-		args:          []*arg{},
-		argsIdx:       map[string]*arg{},
+		options:       []*container.Container{},
+		optionsIdx:    map[string]*container.Container{},
+		args:          []*container.Container{},
+		argsIdx:       map[string]*container.Container{},
 	})
 }
 
@@ -133,9 +134,9 @@ func (c *Cmd) Bool(p BoolParam) *bool {
 
 	switch x := p.(type) {
 	case BoolOpt:
-		c.mkOpt(opt{name: x.Name, desc: x.Desc, envVar: x.EnvVar, hideValue: x.HideValue, value: value, valueSetByUser: x.SetByUser})
+		c.mkOpt(container.Container{Name: x.Name, Desc: x.Desc, EnvVar: x.EnvVar, HideValue: x.HideValue, Value: value, ValueSetByUser: x.SetByUser})
 	case BoolArg:
-		c.mkArg(arg{name: x.Name, desc: x.Desc, envVar: x.EnvVar, hideValue: x.HideValue, value: value, valueSetByUser: x.SetByUser})
+		c.mkArg(container.Container{Name: x.Name, Desc: x.Desc, EnvVar: x.EnvVar, HideValue: x.HideValue, Value: value, ValueSetByUser: x.SetByUser})
 	default:
 		panic(fmt.Sprintf("Unhandled param %v", p))
 	}
@@ -155,9 +156,9 @@ func (c *Cmd) String(p StringParam) *string {
 
 	switch x := p.(type) {
 	case StringOpt:
-		c.mkOpt(opt{name: x.Name, desc: x.Desc, envVar: x.EnvVar, hideValue: x.HideValue, value: value, valueSetByUser: x.SetByUser})
+		c.mkOpt(container.Container{Name: x.Name, Desc: x.Desc, EnvVar: x.EnvVar, HideValue: x.HideValue, Value: value, ValueSetByUser: x.SetByUser})
 	case StringArg:
-		c.mkArg(arg{name: x.Name, desc: x.Desc, envVar: x.EnvVar, hideValue: x.HideValue, value: value, valueSetByUser: x.SetByUser})
+		c.mkArg(container.Container{Name: x.Name, Desc: x.Desc, EnvVar: x.EnvVar, HideValue: x.HideValue, Value: value, ValueSetByUser: x.SetByUser})
 	default:
 		panic(fmt.Sprintf("Unhandled param %v", p))
 	}
@@ -177,9 +178,9 @@ func (c *Cmd) Int(p IntParam) *int {
 
 	switch x := p.(type) {
 	case IntOpt:
-		c.mkOpt(opt{name: x.Name, desc: x.Desc, envVar: x.EnvVar, hideValue: x.HideValue, value: value, valueSetByUser: x.SetByUser})
+		c.mkOpt(container.Container{Name: x.Name, Desc: x.Desc, EnvVar: x.EnvVar, HideValue: x.HideValue, Value: value, ValueSetByUser: x.SetByUser})
 	case IntArg:
-		c.mkArg(arg{name: x.Name, desc: x.Desc, envVar: x.EnvVar, hideValue: x.HideValue, value: value, valueSetByUser: x.SetByUser})
+		c.mkArg(container.Container{Name: x.Name, Desc: x.Desc, EnvVar: x.EnvVar, HideValue: x.HideValue, Value: value, ValueSetByUser: x.SetByUser})
 	default:
 		panic(fmt.Sprintf("Unhandled param %v", p))
 	}
@@ -199,9 +200,9 @@ func (c *Cmd) Strings(p StringsParam) *[]string {
 
 	switch x := p.(type) {
 	case StringsOpt:
-		c.mkOpt(opt{name: x.Name, desc: x.Desc, envVar: x.EnvVar, hideValue: x.HideValue, value: value, valueSetByUser: x.SetByUser})
+		c.mkOpt(container.Container{Name: x.Name, Desc: x.Desc, EnvVar: x.EnvVar, HideValue: x.HideValue, Value: value, ValueSetByUser: x.SetByUser})
 	case StringsArg:
-		c.mkArg(arg{name: x.Name, desc: x.Desc, envVar: x.EnvVar, hideValue: x.HideValue, value: value, valueSetByUser: x.SetByUser})
+		c.mkArg(container.Container{Name: x.Name, Desc: x.Desc, EnvVar: x.EnvVar, HideValue: x.HideValue, Value: value, ValueSetByUser: x.SetByUser})
 	default:
 		panic(fmt.Sprintf("Unhandled param %v", p))
 	}
@@ -221,9 +222,9 @@ func (c *Cmd) Ints(p IntsParam) *[]int {
 
 	switch x := p.(type) {
 	case IntsOpt:
-		c.mkOpt(opt{name: x.Name, desc: x.Desc, envVar: x.EnvVar, hideValue: x.HideValue, value: value, valueSetByUser: x.SetByUser})
+		c.mkOpt(container.Container{Name: x.Name, Desc: x.Desc, EnvVar: x.EnvVar, HideValue: x.HideValue, Value: value, ValueSetByUser: x.SetByUser})
 	case IntsArg:
-		c.mkArg(arg{name: x.Name, desc: x.Desc, envVar: x.EnvVar, hideValue: x.HideValue, value: value, valueSetByUser: x.SetByUser})
+		c.mkArg(container.Container{Name: x.Name, Desc: x.Desc, EnvVar: x.EnvVar, HideValue: x.HideValue, Value: value, ValueSetByUser: x.SetByUser})
 	default:
 		panic(fmt.Sprintf("Unhandled param %v", p))
 	}
@@ -241,9 +242,9 @@ Instead, the VarOpt or VarOptArg structs hold the said value.
 func (c *Cmd) Var(p VarParam) {
 	switch x := p.(type) {
 	case VarOpt:
-		c.mkOpt(opt{name: x.Name, desc: x.Desc, envVar: x.EnvVar, hideValue: x.HideValue, value: p.value(), valueSetByUser: x.SetByUser})
+		c.mkOpt(container.Container{Name: x.Name, Desc: x.Desc, EnvVar: x.EnvVar, HideValue: x.HideValue, Value: p.value(), ValueSetByUser: x.SetByUser})
 	case VarArg:
-		c.mkArg(arg{name: x.Name, desc: x.Desc, envVar: x.EnvVar, hideValue: x.HideValue, value: p.value(), valueSetByUser: x.SetByUser})
+		c.mkArg(container.Container{Name: x.Name, Desc: x.Desc, EnvVar: x.EnvVar, HideValue: x.HideValue, Value: p.value(), ValueSetByUser: x.SetByUser})
 	default:
 		panic(fmt.Sprintf("Unhandled param %v", p))
 	}
@@ -265,7 +266,7 @@ func (c *Cmd) doInit() error {
 			c.Spec = "[OPTIONS] "
 		}
 		for _, arg := range c.args {
-			c.Spec += arg.name + " "
+			c.Spec += arg.Name + " "
 		}
 	}
 	fsm, err := uParse(c)
@@ -341,10 +342,10 @@ func (c *Cmd) printHelp(longDesc bool) {
 
 		for _, arg := range c.args {
 			var (
-				env   = formatEnvVarsForHelp(arg.envVar)
-				value = formatValueForHelp(arg.hideValue, arg.value)
+				env   = formatEnvVarsForHelp(arg.EnvVar)
+				value = formatValueForHelp(arg.HideValue, arg.Value)
 			)
-			fmt.Fprintf(w, "  %s\t%s\n", arg.name, joinStrings(arg.desc, env, value))
+			fmt.Fprintf(w, "  %s\t%s\n", arg.Name, joinStrings(arg.Desc, env, value))
 		}
 	}
 
@@ -354,10 +355,10 @@ func (c *Cmd) printHelp(longDesc bool) {
 		for _, opt := range c.options {
 			var (
 				optNames = formatOptNamesForHelp(opt)
-				env      = formatEnvVarsForHelp(opt.envVar)
-				value    = formatValueForHelp(opt.hideValue, opt.value)
+				env      = formatEnvVarsForHelp(opt.EnvVar)
+				value    = formatValueForHelp(opt.HideValue, opt.Value)
 			)
-			fmt.Fprintf(w, "  %s\t%s\n", optNames, joinStrings(opt.desc, env, value))
+			fmt.Fprintf(w, "  %s\t%s\n", optNames, joinStrings(opt.Desc, env, value))
 		}
 	}
 
@@ -376,10 +377,10 @@ func (c *Cmd) printHelp(longDesc bool) {
 	w.Flush()
 }
 
-func formatOptNamesForHelp(o *opt) string {
+func formatOptNamesForHelp(o *container.Container) string {
 	short, long := "", ""
 
-	for _, n := range o.names {
+	for _, n := range o.Names {
 		if len(n) == 2 && short == "" {
 			short = n
 		}
