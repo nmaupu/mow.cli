@@ -180,7 +180,7 @@ func Tokenize(usage string) ([]*Token, *ParseError) {
 			case isUppercase(c):
 				start := pos
 				for pos = pos + 1; pos < eof; pos++ {
-					if !isOkPos(usage[pos]) {
+					if !isOkInArg(usage[pos]) {
 						break
 					}
 				}
@@ -208,7 +208,7 @@ func isUppercase(c uint8) bool {
 	return c >= 'A' && c <= 'Z'
 }
 
-func isOkPos(c uint8) bool {
+func isOkInArg(c uint8) bool {
 	return isUppercase(c) || isDigit(c) || c == '_'
 }
 

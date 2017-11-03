@@ -9,7 +9,7 @@ type ParseContext struct {
 	RejectOptions bool
 }
 
-func NewParseContext() ParseContext {
+func New() ParseContext {
 	return ParseContext{
 		Args:          map[*container.Container][]string{},
 		Opts:          map[*container.Container][]string{},

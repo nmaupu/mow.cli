@@ -6,6 +6,7 @@ import (
 
 	"fmt"
 
+	"github.com/jawher/mow.cli/internal/container"
 	"github.com/jawher/mow.cli/internal/matcher"
 	"github.com/jawher/mow.cli/internal/values"
 )
@@ -28,23 +29,13 @@ func (t transitions) Swap(i, j int) { t[i], t[j] = t[j], t[i] }
 func (t transitions) Less(i, j int) bool {
 	a, b := t[i].Matcher, t[j].Matcher
 	return a.Priority() < b.Priority()
-	//switch a.(type) {
-	//case matcher.shortcut:
-	//	return false
-	//case matcher.optsEnd:
-	//	return false
-	//case *matcher.Arg:
-	//	return false
-	//default:
-	//	return true
-	//}
 }
 
-var _id = 0
+var stateId = 0
 
 func NewState() *State {
-	_id++
-	return &State{id: _id, Transitions: []*Transition{}}
+	stateId++
+	return &State{id: stateId, Transitions: []*Transition{}}
 }
 
 func (s *State) T(matcher matcher.Matcher, next *State) *State {
@@ -52,24 +43,22 @@ func (s *State) T(matcher matcher.Matcher, next *State) *State {
 	return next
 }
 
-func (s *State) has(tr *Transition) bool {
-	for _, t := range s.Transitions {
-		if t.Next == tr.Next && t.Matcher == tr.Matcher {
-			return true
-		}
-	}
-	return false
-}
-
-func removeTransitionAt(idx int, arr transitions) transitions {
-	res := make([]*Transition, len(arr)-1)
-	copy(res, arr[:idx])
-	copy(res[idx:], arr[idx+1:])
-	return res
-}
-
-func (s *State) Simplify() {
+func (s *State) Prepare() {
 	simplify(s, s, map[*State]bool{})
+	sortTransitions(s, map[*State]bool{})
+}
+
+func sortTransitions(s *State, visited map[*State]bool) {
+	if visited[s] {
+		return
+	}
+	visited[s] = true
+
+	sort.Sort(s.Transitions)
+
+	for _, tr := range s.Transitions {
+		sortTransitions(tr.Next, visited)
+	}
 }
 
 func simplify(start, s *State, visited map[*State]bool) {
@@ -103,6 +92,97 @@ func (s *State) simplifySelf(start *State) bool {
 	return false
 }
 
+func removeTransitionAt(idx int, arr transitions) transitions {
+	res := make([]*Transition, len(arr)-1)
+	copy(res, arr[:idx])
+	copy(res[idx:], arr[idx+1:])
+	return res
+}
+
+func (s *State) has(tr *Transition) bool {
+	for _, t := range s.Transitions {
+		if t.Next == tr.Next && t.Matcher == tr.Matcher {
+			return true
+		}
+	}
+	return false
+}
+
+func (s *State) Parse(args []string) error {
+	pc := matcher.New()
+	ok := s.apply(args, pc)
+	if !ok {
+		return fmt.Errorf("incorrect usage")
+	}
+
+	if err := fillContainers(pc.Opts); err != nil {
+		return err
+	}
+	if err := fillContainers(pc.Args); err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func fillContainers(containers map[*container.Container][]string) error {
+	for arg, vs := range containers {
+		if multiValued, ok := arg.Value.(values.MultiValued); ok {
+			multiValued.Clear()
+			arg.ValueSetFromEnv = false
+		}
+		for _, v := range vs {
+			if err := arg.Value.Set(v); err != nil {
+				return err
+			}
+		}
+
+		if arg.ValueSetByUser != nil {
+			*arg.ValueSetByUser = true
+		}
+	}
+	return nil
+}
+
+func (s *State) apply(args []string, pc matcher.ParseContext) bool {
+	if s.Terminal && len(args) == 0 {
+		return true
+	}
+
+	if len(args) > 0 {
+		arg := args[0]
+
+		if !pc.RejectOptions && arg == "--" {
+			pc.RejectOptions = true
+			args = args[1:]
+		}
+	}
+
+	type match struct {
+		tr  *Transition
+		rem []string
+		pc  matcher.ParseContext
+	}
+
+	matches := []*match{}
+	for _, tr := range s.Transitions {
+		fresh := matcher.New()
+		fresh.RejectOptions = pc.RejectOptions
+		if ok, rem := tr.Matcher.Match(args, &fresh); ok {
+			matches = append(matches, &match{tr, rem, fresh})
+		}
+	}
+
+	for _, m := range matches {
+		if ok := m.tr.Next.apply(m.rem, m.pc); ok {
+			pc.Merge(m.pc)
+			return true
+		}
+	}
+
+	return false
+}
+
 func (s *State) dot() string {
 	trs := dot(s, map[*State]bool{})
 	return fmt.Sprintf("digraph G {\n\trankdir=LR\n%s\n}\n", strings.Join(trs, "\n"))
@@ -123,92 +203,4 @@ func dot(s *State, visited map[*State]bool) []string {
 		res = append(res, fmt.Sprintf("\tS%d [peripheries=2]", s.id))
 	}
 	return res
-}
-
-func (s *State) Parse(args []string) error {
-	pc := matcher.NewParseContext()
-	ok, err := s.apply(args, pc)
-	if err != nil {
-		return err
-	}
-	if !ok {
-		return fmt.Errorf("incorrect usage")
-	}
-
-	for opt, vs := range pc.Opts {
-		if multiValued, ok := opt.Value.(values.MultiValued); ok {
-			multiValued.Clear()
-			opt.ValueSetFromEnv = false
-		}
-		for _, v := range vs {
-			if err := opt.Value.Set(v); err != nil {
-				return err
-			}
-		}
-
-		if opt.ValueSetByUser != nil {
-			*opt.ValueSetByUser = true
-		}
-	}
-
-	for arg, vs := range pc.Args {
-		if multiValued, ok := arg.Value.(values.MultiValued); ok {
-			multiValued.Clear()
-			arg.ValueSetFromEnv = false
-		}
-		for _, v := range vs {
-			if err := arg.Value.Set(v); err != nil {
-				return err
-			}
-		}
-
-		if arg.ValueSetByUser != nil {
-			*arg.ValueSetByUser = true
-		}
-	}
-
-	return nil
-}
-
-func (s *State) apply(args []string, pc matcher.ParseContext) (bool, error) {
-	if s.Terminal && len(args) == 0 {
-		return true, nil
-	}
-	sort.Sort(s.Transitions)
-
-	if len(args) > 0 {
-		arg := args[0]
-
-		if !pc.RejectOptions && arg == "--" {
-			pc.RejectOptions = true
-			args = args[1:]
-		}
-	}
-
-	type match struct {
-		tr  *Transition
-		rem []string
-		pc  matcher.ParseContext
-	}
-
-	matches := []*match{}
-	for _, tr := range s.Transitions {
-		fresh := matcher.NewParseContext()
-		fresh.RejectOptions = pc.RejectOptions
-		if ok, rem := tr.Matcher.Match(args, &fresh); ok {
-			matches = append(matches, &match{tr, rem, fresh})
-		}
-	}
-
-	for _, m := range matches {
-		ok, err := m.tr.Next.apply(m.rem, m.pc)
-		if err != nil {
-			return false, err
-		}
-		if ok {
-			pc.Merge(m.pc)
-			return true, nil
-		}
-	}
-	return false, nil
 }

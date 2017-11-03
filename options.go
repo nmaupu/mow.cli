@@ -2,7 +2,6 @@ package cli
 
 import (
 	"flag"
-	"fmt"
 	"strings"
 
 	"github.com/jawher/mow.cli/internal/container"
@@ -233,25 +232,6 @@ The result will be stored in the value parameter (a value implementing the flag.
 */
 func (c *Cmd) VarOpt(name string, value flag.Value, desc string) {
 	c.mkOpt(container.Container{Name: name, Desc: desc, Value: value})
-}
-
-type opt struct {
-	Name            string
-	Desc            string
-	EnvVar          string
-	Names           []string
-	HideValue       bool
-	ValueSetFromEnv bool
-	ValueSetByUser  *bool
-	Value           flag.Value
-}
-
-func (o *opt) isBool() bool {
-	return values.IsBool(o.Value)
-}
-
-func (o *opt) String() string {
-	return fmt.Sprintf("Opt(%v)", o.Names)
 }
 
 func mkOptStrs(optName string) []string {

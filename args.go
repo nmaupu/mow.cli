@@ -2,7 +2,6 @@ package cli
 
 import (
 	"flag"
-	"fmt"
 
 	"github.com/jawher/mow.cli/internal/container"
 	"github.com/jawher/mow.cli/internal/values"
@@ -203,20 +202,6 @@ The result will be stored in the value parameter (a value implementing the flag.
 */
 func (c *Cmd) VarArg(name string, value flag.Value, desc string) {
 	c.mkArg(container.Container{Name: name, Desc: desc, Value: value})
-}
-
-type arg struct {
-	Name            string
-	Desc            string
-	EnvVar          string
-	HideValue       bool
-	ValueSetFromEnv bool
-	ValueSetByUser  *bool
-	Value           flag.Value
-}
-
-func (a *arg) String() string {
-	return fmt.Sprintf("ARG(%s)", a.Name)
 }
 
 func (c *Cmd) mkArg(arg container.Container) {

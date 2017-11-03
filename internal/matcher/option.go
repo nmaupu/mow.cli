@@ -35,7 +35,7 @@ func (o *opt) Match(args []string, c *ParseContext) (bool, []string) {
 		case arg == "-":
 			idx++
 		case arg == "--":
-			return o.theOne.ValueSetFromEnv, nil
+			return o.theOne.ValueSetFromEnv, args
 		case strings.HasPrefix(arg, "--"):
 			matched, consumed, nargs := o.matchLongOpt(args, idx, c)
 
@@ -79,6 +79,9 @@ func (o *opt) matchLongOpt(args []string, idx int, c *ParseContext) (bool, int, 
 			return false, 1, args
 		}
 		value := kv[1]
+		if value == "" {
+			return false, 0, args
+		}
 		c.Opts[o.theOne] = append(c.Opts[o.theOne], value)
 		return true, 1, removeStringAt(idx, args)
 	case values.IsBool(opt.Value):
@@ -112,16 +115,17 @@ func (o *opt) matchShortOpt(args []string, idx int, c *ParseContext) (bool, int,
 	if strings.HasPrefix(arg[2:], "=") {
 		name := arg[0:2]
 		opt, _ := o.index[name]
-		if opt == o.theOne {
-			value := arg[3:]
-			if value == "" {
-				return false, 0, args
-			}
-			c.Opts[o.theOne] = append(c.Opts[o.theOne], value)
-			return true, 1, removeStringAt(idx, args)
+		if opt != o.theOne {
+			return false, 1, args
 		}
 
-		return false, 1, args
+		value := arg[3:]
+		if value == "" {
+			return false, 0, args
+		}
+		c.Opts[o.theOne] = append(c.Opts[o.theOne], value)
+		return true, 1, removeStringAt(idx, args)
+
 	}
 
 	rem := arg[1:]

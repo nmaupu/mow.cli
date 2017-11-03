@@ -4,7 +4,7 @@ import (
 	"testing"
 )
 
-func TestUTokenize(t *testing.T) {
+func TestTokenize(t *testing.T) {
 	cases := []struct {
 		usage    string
 		expected []*Token
@@ -19,6 +19,12 @@ func TestUTokenize(t *testing.T) {
 
 		{"ARG1 ARG2", []*Token{{TTPos, "ARG1", 0}, {TTPos, "ARG2", 5}}},
 		{"ARG1  ARG2", []*Token{{TTPos, "ARG1", 0}, {TTPos, "ARG2", 6}}},
+
+		{"(", []*Token{{TTOpenPar, "(", 0}}},
+		{")", []*Token{{TTClosePar, ")", 0}}},
+
+		{"(ARG)", []*Token{{TTOpenPar, "(", 0}, {TTPos, "ARG", 1}, {TTClosePar, ")", 4}}},
+		{"( ARG )", []*Token{{TTOpenPar, "(", 0}, {TTPos, "ARG", 2}, {TTClosePar, ")", 6}}},
 
 		{"[ARG]", []*Token{{TTOpenSq, "[", 0}, {TTPos, "ARG", 1}, {TTCloseSq, "]", 4}}},
 		{"[ ARG ]", []*Token{{TTOpenSq, "[", 0}, {TTPos, "ARG", 2}, {TTCloseSq, "]", 6}}},
@@ -80,11 +86,17 @@ func TestUTokenize(t *testing.T) {
 	}
 }
 
-func TestUTokenizeErrors(t *testing.T) {
+func TestTokenizeErrors(t *testing.T) {
 	cases := []struct {
 		usage string
 		pos   int
 	}{
+		{".", 1},
+		{"A.", 2},
+		{"A.x", 2},
+		{"..", 2},
+		{"ARG..", 5},
+		{"ARG..x", 5},
 		{"-", 1},
 		{"---x", 2},
 		{"-x-", 2},
@@ -93,10 +105,13 @@ func TestUTokenizeErrors(t *testing.T) {
 		{"=<", 2},
 		{"=<dsdf", 6},
 		{"=<>", 2},
+		{"a", 0},
+		{"ARg", 2},
+		{"1ARG", 0},
 	}
 
 	for _, c := range cases {
-		t.Logf("test %s", c.usage)
+		t.Logf("test case %q", c.usage)
 		tks, err := Tokenize(c.usage)
 		if err == nil {
 			t.Errorf("Tokenize('%s') should have failed, instead got %v", c.usage, tks)
